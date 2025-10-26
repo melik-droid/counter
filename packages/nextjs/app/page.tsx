@@ -1,68 +1,113 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import type { NextPage } from "next";
 import { useAccount } from "wagmi";
-import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, MinusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Address } from "~~/components/scaffold-eth";
+import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 const Home: NextPage = () => {
   const { address: connectedAddress } = useAccount();
+  const [counter, setCounter] = useState(0);
+
+  // Read the user's recorded counter from the blockchain
+  const { data: recordedCounter, refetch } = useScaffoldReadContract({
+    contractName: "YourContract",
+    functionName: "getUserCounter",
+    args: [connectedAddress],
+  });
+
+  // Write function to record counter on-chain
+  const { writeContractAsync: recordCounter } = useScaffoldWriteContract("YourContract");
+
+  const handleIncrement = () => {
+    setCounter(prev => prev + 1);
+  };
+
+  const handleDecrement = () => {
+    setCounter(prev => Math.max(0, prev - 1));
+  };
+
+  const handleReset = () => {
+    setCounter(0);
+  };
+
+  const handleRecordOnChain = async () => {
+    try {
+      await recordCounter({
+        functionName: "recordCounter",
+        args: [BigInt(counter)],
+      });
+      // Refetch the recorded counter after recording
+      setTimeout(() => refetch(), 2000);
+    } catch (error) {
+      console.error("Error recording counter:", error);
+    }
+  };
 
   return (
     <>
       <div className="flex items-center flex-col grow pt-10">
-        <div className="px-5">
-          <h1 className="text-center">
-            <span className="block text-2xl mb-2">Welcome to</span>
-            <span className="block text-4xl font-bold">Scaffold-ETH 2</span>
+        <div className="px-5 w-full max-w-2xl">
+          <h1 className="text-center mb-8">
+            <span className="block text-4xl font-bold mb-2">Counter App</span>
+            <span className="block text-xl text-base-content/70">Record Your Counter On-Chain</span>
           </h1>
-          <div className="flex justify-center items-center space-x-2 flex-col">
+
+          <div className="flex justify-center items-center space-x-2 flex-col mb-8">
             <p className="my-2 font-medium">Connected Address:</p>
             <Address address={connectedAddress} />
           </div>
 
-          <p className="text-center text-lg">
-            Get started by editing{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/nextjs/app/page.tsx
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Edit your smart contract{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              YourContract.sol
-            </code>{" "}
-            in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
-            </code>
-          </p>
-        </div>
+          {/* Counter Card */}
+          <div className="card bg-base-100 shadow-xl mb-6">
+            <div className="card-body items-center text-center">
+              <h2 className="card-title text-2xl mb-4">Your Counter</h2>
 
-        <div className="grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col md:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <BugAntIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Tinker with your smart contract using the{" "}
-                <Link href="/debug" passHref className="link">
-                  Debug Contracts
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Explore your local transactions with the{" "}
-                <Link href="/blockexplorer" passHref className="link">
-                  Block Explorer
-                </Link>{" "}
-                tab.
-              </p>
+              {/* Counter Display */}
+              <div className="text-8xl font-bold text-primary mb-8 min-w-[200px]">{counter}</div>
+
+              {/* Counter Controls */}
+              <div className="flex gap-4 mb-6">
+                <button className="btn btn-circle btn-lg btn-primary" onClick={handleDecrement}>
+                  <MinusIcon className="h-8 w-8" />
+                </button>
+
+                <button className="btn btn-circle btn-lg btn-secondary" onClick={handleReset}>
+                  <ArrowPathIcon className="h-8 w-8" />
+                </button>
+
+                <button className="btn btn-circle btn-lg btn-primary" onClick={handleIncrement}>
+                  <PlusIcon className="h-8 w-8" />
+                </button>
+              </div>
+
+              {/* Record Button */}
+              <button
+                className="btn btn-accent btn-wide btn-lg"
+                onClick={handleRecordOnChain}
+                disabled={!connectedAddress}
+              >
+                📝 Record on Blockchain
+              </button>
+
+              {!connectedAddress && (
+                <p className="text-sm text-warning mt-2">Please connect your wallet to record on-chain</p>
+              )}
             </div>
           </div>
+
+          {/* Recorded Counter Display */}
+          {connectedAddress && (
+            <div className="card bg-base-200 shadow-xl">
+              <div className="card-body items-center text-center">
+                <h3 className="card-title text-xl">Your Recorded Counter</h3>
+                <div className="text-5xl font-bold text-secondary mt-2">{recordedCounter?.toString() || "0"}</div>
+                <p className="text-sm text-base-content/70 mt-2">This value is stored permanently on the blockchain</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
